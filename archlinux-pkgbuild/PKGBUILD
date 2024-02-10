@@ -55,7 +55,8 @@ build() {
 }
 
 package() {
-    cp  ${startdir}/clang.install
-    sed -i "s,CLANG_PREFIX,${prefix_path},g;s,CLANG_VERSION,${_pkgver_suffix},g" ${startdir}/clang.install.template > ${startdir}/clang.install
     DESTDIR="$pkgdir" ninja -C _build install
+    sed "s,CLANG_PREFIX,${prefix_path},g;s,CLANG_VERSION,${_pkgver_suffix},g" ${startdir}/clang.install.template > ${startdir}/clang.install
+    sed "s,CLANG_PREFIX,${prefix_path},g;s,CLANG_VERSION,${_pkgver_suffix},g" ${startdir}/clang.cfg.template > ${pkgdir}/${prefix_path}/${_pkgver_suffix}/bin/clang.cfg
+    sed "s,CLANG_PREFIX,${prefix_path},g;s,CLANG_VERSION,${_pkgver_suffix},g" ${startdir}/clang.cfg.template > ${pkgdir}/${prefix_path}/${_pkgver_suffix}/bin/clang++.cfg
 }

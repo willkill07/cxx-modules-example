@@ -1,0 +1,2 @@
+-Wl,-rpath,CLANG_PREFIX/CLANG_VERSION/lib/x86_64-unknown-linux-gnu
+-Wl,-rpath-link,CLANG_PREFIX/CLANG_VERSION/lib/x86_64-unknown-linux-gnu
