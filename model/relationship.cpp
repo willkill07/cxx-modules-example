@@ -8,37 +8,55 @@ import util;
 
 namespace model {
 
-/**
- * @brief
- *
- */
 export class Relationship {
   std::string source_;
   std::string destination_;
 
+  Relationship(tags::Source source, tags::Destination destination)
+      : source_{source.release()}, destination_{destination.release()} {}
+
 public:
-  Relationship(tags::Source source, tags::Destination destination);
-  [[nodiscard]] std::string_view source() noexcept;
-  [[nodiscard]] std::string_view destination() noexcept;
-  void rename_source(std::string_view name);
-  void rename_destination(std::string_view name);
+  Relationship() = delete;
+  constexpr Relationship(Relationship &&) noexcept = default;
+  Relationship &operator=(Relationship &&) noexcept = default;
+  constexpr Relationship(Relationship const &) noexcept = delete;
+  Relationship &operator=(Relationship const &) noexcept = delete;
+
+  [[nodiscard]] static auto
+  construct(tags::Source source,
+            tags::Destination destination) noexcept -> result<Relationship> {
+    try {
+      return Relationship{std::move(source), std::move(destination)};
+    } catch (std::exception const &e) {
+      return error("runtime error: {}", e.what());
+    }
+  }
+
+  [[nodiscard]] auto source() noexcept -> std::string_view { return source_; }
+
+  [[nodiscard]] auto destination() noexcept -> std::string_view {
+    return destination_;
+  }
+
+  [[nodiscard]] auto
+  rename_source(std::string_view name) noexcept -> result<void> {
+    try {
+      source_ = name;
+      return {};
+    } catch (std::exception const &e) {
+      return error("runtime error: {}", e.what());
+    }
+  }
+
+  [[nodiscard]] auto
+  rename_destination(std::string_view name) noexcept -> result<void> {
+    try {
+      destination_ = name;
+      return {};
+    } catch (std::exception const &e) {
+      return error("runtime error: {}", e.what());
+    }
+  }
 };
-
-Relationship::Relationship(tags::Source source, tags::Destination destination)
-    : source_{source.release()}, destination_{destination.release()} {}
-
-[[nodiscard]] std::string_view Relationship::source() noexcept {
-  return source_;
-}
-
-[[nodiscard]] std::string_view Relationship::destination() noexcept {
-  return destination_;
-}
-
-void Relationship::rename_source(std::string_view name) { source_ = name; }
-
-void Relationship::rename_destination(std::string_view name) {
-  destination_ = name;
-}
 
 } // namespace model

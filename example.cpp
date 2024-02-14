@@ -1,11 +1,15 @@
-#include <cstdlib>
 import std;
 import model;
+import util;
 
 int main() try {
   std::println("Hello world!");
 
-  model::Diagram diagram;
+  result<model::Diagram> res = model::Diagram::construct();
+  if (not res) {
+    std::println("{}", res.error());
+  }
+  auto diagram = std::move(res.value());
 
   namespace tags = model::tags;
 
@@ -30,8 +34,7 @@ int main() try {
                diagram.rename_class(tags::OldName{"A"}, tags::NewName{"C"})
                    .error_or(""));
 
-  return EXIT_SUCCESS;
-} catch (std::exception const &e) {
-  std::println("An unknown exception was encountered during runtime: {}",
-               e.what());
+  return 0;
+} catch (std::exception const& e) {
+  return 1;
 }
