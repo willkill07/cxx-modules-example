@@ -11,50 +11,46 @@ import util;
 namespace model {
 
 export class Class {
-  std::string name_;
-  std::list<Attribute> attributes_;
+  std::shared_ptr<std::string> name_;
+  std::list<std::shared_ptr<Attribute>> attributes_;
 
-  explicit Class(std::string_view name) : name_{name} {}
+  explicit Class(std::string_view name)
+      : name_{std::make_shared<std::string>(name)} {}
 
 public:
-
   Class() = delete;
-  Class(Class &&) noexcept = default;
-  Class &operator=(Class &&) noexcept = default;
-  constexpr Class(Class const &) noexcept = delete;
-  constexpr Class &operator=(Class const &) noexcept = delete;
 
-  [[nodiscard]] static auto
-  construct(std::string_view name) noexcept -> result<Class> {
+  [[nodiscard]] static auto construct(std::string_view name) noexcept
+      -> result<std::shared_ptr<Class>> {
     try {
-      return Class{name};
+      return std::shared_ptr<Class>{new Class{name}};
     } catch (std::exception const &e) {
       return error("runtime error: {}", e.what());
     }
   }
 
-  [[nodiscard]] std::string_view name() const noexcept { return name_; }
+  [[nodiscard]] std::string_view name() const noexcept { return *name_; }
 
-  [[nodiscard]] auto
-  rename(std::string_view new_name) noexcept -> result<void> {
+  [[nodiscard]] auto rename(std::string_view new_name) noexcept
+      -> result<void> {
     try {
-      name_ = new_name;
+      name_ = std::make_shared<std::string>(new_name);
       return {};
     } catch (std::exception const &e) {
       return error("runtime error: {}", e.what());
     }
   }
 
-  [[nodiscard]] auto
-  add_attribute(std::string_view name) noexcept -> result<void> {
+  [[nodiscard]] auto add_attribute(std::string_view name) noexcept
+      -> result<void> {
     if (std::ranges::find(attributes_, name, &Attribute::name) !=
         std::ranges::end(attributes_)) {
       return error("{} {}: {}", "attribute", errors::already_exists, name);
     } else {
       return Attribute::construct(name).and_then(
-          [&](Attribute &&attr) -> result<void> {
+          [&](std::shared_ptr<Attribute> &&attr) -> result<void> {
             try {
-              attributes_.push_back(std::move(attr));
+              attributes_.push_back(attr);
               return {};
             } catch (std::exception const &e) {
               return error("runtime error: {}", e.what());
@@ -63,8 +59,9 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  remove_attribute(std::string_view name) noexcept -> result<void> {
+  [[nodiscard]] auto remove_attribute(std::string_view name) noexcept
+      -> result<void> {
+    auto copy{attributes_};
     if (auto iter = std::ranges::find(attributes_, name, &Attribute::name);
         iter == std::ranges::end(attributes_)) {
       return error("{} {}: {}", "attribute", errors::does_not_exist, name);
@@ -74,9 +71,9 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  rename_attribute(tags::OldName old_name,
-                   tags::NewName new_name) noexcept -> result<void> {
+  [[nodiscard]] auto rename_attribute(tags::OldName old_name,
+                                      tags::NewName new_name) noexcept
+      -> result<void> {
     auto iter =
         std::ranges::find(attributes_, old_name.get(), &Attribute::name);
     if (iter == std::ranges::end(attributes_)) {
@@ -88,7 +85,7 @@ public:
       return error("{} new name {}: {}", "attribute", errors::already_exists,
                    old_name.get());
     }
-    return iter->rename(new_name.get());
+    return (*iter)->rename(new_name.get());
   }
 };
 

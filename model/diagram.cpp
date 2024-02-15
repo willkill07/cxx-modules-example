@@ -11,8 +11,8 @@ import util;
 namespace model {
 
 export class Diagram {
-  std::list<Class> classes_;
-  std::list<Relationship> relationships_;
+  std::list<std::shared_ptr<Class>> classes_;
+  std::list<std::shared_ptr<Relationship>> relationships_;
 
   [[nodiscard]] auto class_iter_from_name(this auto &&self,
                                           std::string_view name) noexcept {
@@ -23,22 +23,24 @@ export class Diagram {
   rel_iter_from_names(this auto &&self, tags::Source source,
                       tags::Destination destination) noexcept {
     return std::ranges::find_if(self.relationships_, [=](auto &&rel) {
-      return rel.source() == source.get() and
-             rel.destination() == destination.get();
+      return rel->source() == source.get() and
+             rel->destination() == destination.get();
     });
   }
 
   Diagram() = default;
-public:
-  Diagram(Diagram &&) noexcept = default;
-  Diagram &operator=(Diagram &&) noexcept = default;
-  constexpr Diagram(Diagram const &) noexcept = delete;
-  constexpr Diagram &operator=(Diagram const &) noexcept = delete;
 
-  [[nodiscard]] static auto construct() noexcept -> result<Diagram> {
+public:
+  Diagram(Diagram const &) = default;
+  Diagram(Diagram &&) = default;
+  Diagram &operator=(Diagram const &) = default;
+  Diagram &operator=(Diagram &&) = default;
+
+  [[nodiscard]] static auto construct() noexcept
+      -> result<std::shared_ptr<Diagram>> {
     try {
-      return Diagram{};
-    } catch (std::exception const& e) {
+      return std::shared_ptr<Diagram>(new Diagram);
+    } catch (std::exception const &e) {
       return error("runtime error: {}", e.what());
     }
   }
@@ -48,19 +50,20 @@ public:
         iter != std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::already_exists, name);
     } else {
-      return Class::construct(name).and_then([&](Class &&cls) -> result<void> {
-        try {
-          classes_.push_back(std::move(cls));
-          return {};
-        } catch (std::exception const &e) {
-          return error("runtime error: {}", e.what());
-        }
-      });
+      return Class::construct(name).and_then(
+          [&](std::shared_ptr<Class> &&cls) -> result<void> {
+            try {
+              classes_.push_back(std::move(cls));
+              return {};
+            } catch (std::exception const &e) {
+              return error("runtime error: {}", e.what());
+            }
+          });
     }
   }
 
-  [[nodiscard]] auto
-  remove_class(std::string_view name) noexcept -> result<void> {
+  [[nodiscard]] auto remove_class(std::string_view name) noexcept
+      -> result<void> {
     if (auto iter = class_iter_from_name(name);
         iter == std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::does_not_exist, name);
@@ -70,9 +73,9 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  rename_class(tags::OldName old_class_name,
-               tags::NewName new_class_name) noexcept -> result<void> {
+  [[nodiscard]] auto rename_class(tags::OldName old_class_name,
+                                  tags::NewName new_class_name) noexcept
+      -> result<void> {
     if (auto old = class_iter_from_name(old_class_name.get());
         old == std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::does_not_exist,
@@ -82,17 +85,17 @@ public:
       return error("new {} name {}: {}", "class", errors::already_exists,
                    new_class_name.get());
     } else {
-      if (auto res = old->rename(new_class_name.get()); not res) {
+      if (auto res = (*old)->rename(new_class_name.get()); not res) {
         return res;
       }
-      for (Relationship &rel : relationships_) {
-        if (rel.source() == old_class_name.get()) {
-          if (auto res = rel.rename_source(new_class_name.get()); not res) {
+      for (std::shared_ptr<Relationship> &rel : relationships_) {
+        if (rel->source() == old_class_name.get()) {
+          if (auto res = rel->rename_source(new_class_name.get()); not res) {
             return res;
           }
         }
-        if (rel.destination() == old_class_name.get()) {
-          if (auto res = rel.rename_destination(new_class_name.get());
+        if (rel->destination() == old_class_name.get()) {
+          if (auto res = rel->rename_destination(new_class_name.get());
               not res) {
             return res;
           }
@@ -102,9 +105,9 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  add_relationship(tags::Source source,
-                   tags::Destination destination) noexcept -> result<void> {
+  [[nodiscard]] auto add_relationship(tags::Source source,
+                                      tags::Destination destination) noexcept
+      -> result<void> {
     if (auto iter = rel_iter_from_names(source, destination);
         iter != std::ranges::end(relationships_)) {
       return error("{} {}", "relationship", errors::already_exists);
@@ -118,9 +121,9 @@ public:
                    source.get());
     } else {
       return Relationship::construct(std::move(source), std::move(destination))
-          .and_then([&](Relationship &&rel) -> result<void> {
+          .and_then([&](std::shared_ptr<Relationship> &&rel) -> result<void> {
             try {
-              relationships_.push_back(std::move(rel));
+              relationships_.push_back(rel);
               return {};
             } catch (std::exception const &e) {
               return error("runtime error; {}", e.what());
@@ -129,9 +132,9 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  remove_relationship(tags::Source source,
-                      tags::Destination destination) noexcept -> result<void> {
+  [[nodiscard]] auto remove_relationship(tags::Source source,
+                                         tags::Destination destination) noexcept
+      -> result<void> {
     if (auto iter = rel_iter_from_names(source, destination);
         iter == std::ranges::end(relationships_)) {
       return error("{} {}", "relationship", errors::does_not_exist);
@@ -141,39 +144,40 @@ public:
     }
   }
 
-  [[nodiscard]] auto
-  add_attribute(tags::Class class_name,
-                tags::Attribute attr_name) noexcept -> result<void> {
+  [[nodiscard]] auto add_attribute(tags::Class class_name,
+                                   tags::Attribute attr_name) noexcept
+      -> result<void> {
     if (auto cls = class_iter_from_name(class_name.get());
         cls == std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::already_exists,
                    class_name.get());
     } else {
-      return cls->add_attribute(attr_name.get());
+      return (*cls)->add_attribute(attr_name.get());
     }
   }
 
-  [[nodiscard]] auto
-  remove_attribute(tags::Class class_name,
-                   tags::Attribute attr_name) noexcept -> result<void> {
+  [[nodiscard]] auto remove_attribute(tags::Class class_name,
+                                      tags::Attribute attr_name) noexcept
+      -> result<void> {
     if (auto cls = class_iter_from_name(class_name.get());
         cls == std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::does_not_exist,
                    class_name.get());
     } else {
-      return cls->remove_attribute(attr_name.get());
+      return (*cls)->remove_attribute(attr_name.get());
     }
   }
 
-  [[nodiscard]] auto
-  rename_attribute(tags::Class class_name, tags::OldName old_attr_name,
-                   tags::NewName new_attr_name) noexcept -> result<void> {
+  [[nodiscard]] auto rename_attribute(tags::Class class_name,
+                                      tags::OldName old_attr_name,
+                                      tags::NewName new_attr_name) noexcept
+      -> result<void> {
     if (auto cls = class_iter_from_name(class_name.get());
         cls == std::ranges::end(classes_)) {
       return error("{} {}: {}", "class", errors::does_not_exist,
                    class_name.get());
     } else {
-      return cls->rename_attribute(old_attr_name, new_attr_name);
+      return (*cls)->rename_attribute(old_attr_name, new_attr_name);
     }
   }
 };

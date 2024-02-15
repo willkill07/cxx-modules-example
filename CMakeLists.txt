@@ -9,10 +9,11 @@ include(cmake/std.cmake)
 
 add_subdirectory(util)
 add_subdirectory(model)
+add_subdirectory(cmd)
 
 add_executable(main)
 target_sources(main
   PRIVATE
     example.cpp
 )
-target_link_libraries(main PRIVATE model)
+target_link_libraries(main PRIVATE model cmd)
